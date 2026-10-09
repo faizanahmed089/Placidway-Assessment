@@ -68,6 +68,12 @@ def test_visitor_figure_found_only_on_an_unrelated_page_is_still_masked():
     assert "50" not in masked and guardrails.MASK in masked
 
 
+def test_claimed_prices_are_removed_from_the_search_query():
+    stripped = guardrails.strip_price_figures("Does the 3 week adrenal program cost $50 or 500 USD?")
+    assert "50" not in stripped and "500" not in stripped
+    assert "3 week adrenal program" in stripped  # ordinary numbers stay
+
+
 def test_contains_figures_detects_prices_but_not_plain_counting():
     assert guardrails.contains_figures("It costs $18,995 USD.") is True
     assert guardrails.contains_figures("There are 2 programs.") is False

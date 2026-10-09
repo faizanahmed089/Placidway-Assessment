@@ -114,7 +114,7 @@ class KnowledgeBase:
         manifest = json.loads(config.MANIFEST_FILE.read_text(encoding="utf-8"))
         return cls(chunks, embeddings, manifest)
 
-    def search(self, query: str, alternative: str = "",
+    def search(self, query: str, alternative: str = "", context: str = "",
                top_k: int = config.TOP_K) -> tuple[list[dict], float]:
         """Return (best chunks, best cosine similarity).
 
@@ -125,7 +125,13 @@ class KnowledgeBase:
         The similarity is returned separately because the caller uses it as a
         relevance gate: a low value means "nothing on the site is about this".
         """
-        queries = [query] + ([alternative] if alternative and alternative != query else [])
+        # `context` is the visitor's previous question. Searching with it as
+        # well keeps the page under discussion among the results even when the
+        # follow-up itself is vague ("I heard it costs less - confirm that").
+        queries = [query]
+        for extra in (alternative, context):
+            if extra and extra not in queries:
+                queries.append(extra)
         similarities = np.zeros(len(self.chunks), dtype=np.float32)
         rankings = []
         for text in queries:

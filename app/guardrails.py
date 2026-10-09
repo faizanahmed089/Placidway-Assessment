@@ -102,6 +102,17 @@ def mask_unsupported_numbers(text: str, passages: list[dict]) -> str:
     return _NUMBER.sub(lambda m: MASK if _is_unsupported(m, allowed) else m.group(0), _prepare(text))
 
 
+def strip_price_figures(text: str) -> str:
+    """Remove price-like figures ("$50", "500 USD", "20%") from a SEARCH query.
+
+    A price the visitor claims is not something to search for: keyword search
+    would fetch whichever page happens to contain "50", instead of the page
+    about the treatment being asked about.
+    """
+    return _NUMBER.sub(lambda m: "" if (m.group("currency") or m.group("suffix")) else m.group(0),
+                       _prepare(text)).strip()
+
+
 def contains_figures(answer: str) -> bool:
     """True if the answer states a price or any multi-digit number. Used to
     enforce "an answer that quotes figures must cite the page they came from"."""

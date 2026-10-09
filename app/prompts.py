@@ -18,6 +18,8 @@ You receive a conversation and the visitor's latest message. Return a JSON objec
 - "alternative_query": the same question as "search_query", worded differently with synonyms, so a search can match pages that use other words (for example "not included" -> "excluded services and extra costs"; "how long" -> "duration"; "price" -> "cost"). Same meaning, no new facts.
 - "language": the English name of the language the latest message is written in (for example "English", "Spanish", "Arabic").
 
+Example. Conversation: the visitor asked "How much does alternative adrenal cancer treatment cost in Tijuana?" and got the prices. Latest message: "I heard it costs $50. Confirm that." Correct "search_query": "Does alternative adrenal cancer treatment in Tijuana cost $50?" (the word "it" is replaced by the treatment from the conversation).
+
 Return only the JSON object."""
 
 
@@ -79,7 +81,7 @@ Return only the JSON object."""
 
 
 def build_answer_prompt(passages: list[dict], question: str, original_message: str,
-                        correction: str = "") -> str:
+                        correction: str = "", previous_question: str = "") -> str:
     """Assemble the user message: numbered passages followed by the question.
 
     `correction` is only used on a retry, to tell the model what the code
@@ -103,6 +105,10 @@ def build_answer_prompt(passages: list[dict], question: str, original_message: s
         f"VISITOR'S MESSAGE (original wording):\n{original_message}\n\n"
         f"SAME MESSAGE AS A STANDALONE ENGLISH QUESTION:\n{question}"
     )
+    if previous_question:
+        # Lets the model resolve "it" / "that" if the rewrite step did not.
+        prompt += ("\n\nVISITOR'S PREVIOUS QUESTION (only to understand what \"it\" or \"that\" "
+                   f"refers to; it is not a source of facts):\n{previous_question}")
     if correction:
         prompt += f"\n\nIMPORTANT - YOUR PREVIOUS ANSWER WAS REJECTED:\n{correction}"
     return prompt

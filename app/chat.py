@@ -118,7 +118,8 @@ def _validate(reply: dict, passages: list[dict]) -> tuple[dict | None, str]:
     }, ""
 
 
-def _generate(passages: list[dict], query: str, message: str, language: str) -> dict | None:
+def _generate(passages: list[dict], query: str, message: str, language: str,
+              previous_question: str = "") -> dict | None:
     """Steps 4 + 5. Ask the LLM; if verification rejects the answer, tell the
     model why and try exactly once more. Returns None if both attempts fail."""
     system_prompt = ANSWER_SYSTEM.replace("{language}", language)
@@ -128,7 +129,8 @@ def _generate(passages: list[dict], query: str, message: str, language: str) -> 
     correction = ""
     for attempt in (1, 2):
         reply = ask_json(config.ANSWER_MODEL, system_prompt,
-                         build_answer_prompt(passages, query, message, correction))
+                         build_answer_prompt(passages, query, message, correction,
+                                             previous_question))
         clean, reason = _validate(reply, passages)
         if clean is not None:
             return clean
@@ -187,8 +189,14 @@ def answer_question(kb: KnowledgeBase, message: str, history: list[dict],
         # 1. Rewrite.
         query, alternative, language = _rewrite(message, history)
 
-        # 2. Retrieve (with both wordings of the question).
-        passages, best_score = kb.search(query, alternative)
+        # 2. Retrieve, using both wordings of the question plus the visitor's
+        # previous question (so a vague follow-up still finds the page under
+        # discussion). Claimed prices are removed from the search text.
+        previous_question = next((turn["content"] for turn in reversed(history)
+                                  if turn["role"] == "user"), "")
+        passages, best_score = kb.search(guardrails.strip_price_figures(query),
+                                         guardrails.strip_price_figures(alternative),
+                                         context=previous_question)
 
         # 3. Relevance gate. Below the threshold the question is not about
         # anything on the pages, so the LLM gets no passages at all - it can
@@ -197,7 +205,7 @@ def answer_question(kb: KnowledgeBase, message: str, history: list[dict],
             passages = []
 
         # 4 + 5. Generate and verify.
-        result = _generate(passages, query, message, language)
+        result = _generate(passages, query, message, language, previous_question)
     except LLMError as error:
         log.error("LLM failure: %s", error)
         storage.log_unanswered(message, query, "llm_error", best_score)
