@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PlacidWay Knowledge Chatbot (assessment demo)</title>
+<style>
+  :root {
+    --bg: #f4f6f8; --panel: #ffffff; --text: #1d2733; --muted: #62707f;
+    --accent: #0b6e6e; --accent-soft: #e3f1f1; --border: #dde3e9; --user: #0b6e6e;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .app { max-width: 760px; margin: 0 auto; height: 100dvh; display: flex; flex-direction: column;
+         background: var(--panel); border-left: 1px solid var(--border); border-right: 1px solid var(--border); }
+  header { padding: 14px 16px; border-bottom: 1px solid var(--border);
+           display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  header h1 { margin: 0; font-size: 17px; }
+  header p { margin: 2px 0 0; font-size: 12.5px; color: var(--muted); }
+  button { font: inherit; cursor: pointer; }
+  .ghost { background: none; border: 1px solid var(--border); border-radius: 8px;
+           padding: 6px 10px; color: var(--muted); white-space: nowrap; }
+  #messages { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+  .msg { max-width: 88%; padding: 10px 13px; border-radius: 14px; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .msg.user { align-self: flex-end; background: var(--user); color: #fff; border-bottom-right-radius: 4px; }
+  .msg.bot { align-self: flex-start; background: var(--accent-soft); border-bottom-left-radius: 4px; }
+  .msg.pending { color: var(--muted); font-style: italic; }
+  .extras { margin-top: 10px; padding-top: 8px; border-top: 1px solid #c9dede; font-size: 13.5px; white-space: normal; }
+  .extras + .extras { margin-top: 8px; }
+  .extras strong { display: block; margin-bottom: 2px; }
+  .extras a { color: var(--accent); display: block; margin: 2px 0; }
+  .disclaimer { color: var(--muted); font-size: 12.5px; }
+  .lead-form { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .lead-form input { flex: 1 1 150px; min-width: 0; padding: 7px 9px; border: 1px solid var(--border);
+                     border-radius: 8px; font: inherit; }
+  .lead-form button, #send { background: var(--accent); color: #fff; border: 0; border-radius: 8px; padding: 8px 14px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chips button { background: var(--panel); border: 1px solid var(--border); border-radius: 16px;
+                  padding: 6px 12px; color: var(--text); text-align: left; }
+  form#composer { display: flex; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--border); }
+  #input { flex: 1; min-width: 0; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; font: inherit; }
+  button:disabled { opacity: .55; cursor: default; }
+  footer { padding: 0 16px 10px; font-size: 12px; color: var(--muted); text-align: center; }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div>
+      <h1>PlacidWay Knowledge Chatbot</h1>
+      <p>Answers only from 7 PlacidWay pages about ITC Immunity Therapy Center and alternative medicine prices.</p>
+    </div>
+    <button class="ghost" id="reset" type="button">New chat</button>
+  </header>
+
+  <div id="messages" aria-live="polite"></div>
+
+  <form id="composer">
+    <input id="input" maxlength="600" autocomplete="off" dir="auto"
+           placeholder="Ask about treatments, packages or prices..." aria-label="Your question">
+    <button id="send" type="submit">Send</button>
+  </form>
+  <footer>Assessment demo. Information comes from PlacidWay pages and is not medical advice.</footer>
+</div>
+
+<script>
+// ---------------------------------------------------------------------------
+// State. The conversation lives only in this page (nothing is stored on the
+// server); it is sent along with each question so follow-ups work.
+// ---------------------------------------------------------------------------
+let history = [];             // [{role: "user" | "assistant", content: "..."}]
+let disclaimerShown = false;  // medical disclaimer is displayed once per chat
+let lastQuestion = "";        // saved with a quote request for context
+
+const EXAMPLES = [
+  "How much does alternative adrenal cancer treatment cost in Tijuana?",
+  "What is included in the in-patient adenocarcinoma cancer treatment program?",
+  "How much does acupuncture cost abroad?",
+  "¿Cuánto cuesta el tratamiento alternativo de cáncer anal en Tijuana?",
+];
+
+const messagesEl = document.getElementById("messages");
+const inputEl = document.getElementById("input");
+const sendEl = document.getElementById("send");
+
+// Small helper to build elements. Text is always set with textContent, never
+// innerHTML, so nothing typed by a visitor or written by the model can inject HTML.
+function el(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text !== undefined) node.textContent = text;
+  return node;
+}
+
+function addMessage(role, text) {
+  const bubble = el("div", "msg " + role, text);
+  bubble.dir = "auto";  // right-to-left automatically for Arabic, Hebrew...
+  messagesEl.appendChild(bubble);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+  return bubble;
+}
+
+function showWelcome() {
+  const bubble = addMessage("bot",
+    "Hi! I can answer questions about the ITC Immunity Therapy Center in Tijuana, its " +
+    "alternative cancer treatment packages and alternative medicine prices, using PlacidWay's pages. Try one of these:");
+  const chips = el("div", "chips extras");
+  for (const example of EXAMPLES) {
+    const chip = el("button", "", example);
+    chip.type = "button";
+    chip.onclick = () => ask(example);
+    chips.appendChild(chip);
+  }
+  bubble.appendChild(chips);
+}
+
+// Links to the page(s) the answer came from.
+function addSources(bubble, sources) {
+  if (!sources.length) return;
+  const box = el("div", "extras");
+  box.appendChild(el("strong", "", sources.length > 1 ? "Sources" : "Source"));
+  for (const source of sources) {
+    const link = el("a", "", source.title + " (" + source.page_type + ")");
+    link.href = source.url;
+    link.target = "_blank";
+    link.rel = "noopener";
+    box.appendChild(link);
+  }
+  bubble.appendChild(box);
+}
+
+// Quote offer: link to PlacidWay's own quote form + optional name/email capture.
+function addQuoteOffer(bubble, quoteUrl) {
+  const box = el("div", "extras");
+  box.appendChild(el("strong", "", "Want exact details?"));
+  const link = el("a", "", "Request a free quote on PlacidWay");
+  link.href = quoteUrl;
+  link.target = "_blank";
+  link.rel = "noopener";
+  box.appendChild(link);
+  box.appendChild(el("span", "", "Or leave your details and PlacidWay can contact you:"));
+
+  const form = el("form", "lead-form");
+  const name = el("input");
+  name.placeholder = "Your name"; name.required = true; name.maxLength = 100;
+  const email = el("input");
+  email.type = "email"; email.placeholder = "Email"; email.required = true; email.maxLength = 200;
+  const submit = el("button", "", "Send");
+  submit.type = "submit";
+  form.append(name, email, submit);
+
+  const question = lastQuestion;
+  form.onsubmit = async (event) => {
+    event.preventDefault();
+    submit.disabled = true;
+    try {
+      const response = await fetch("/api/lead", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({name: name.value, email: email.value, question}),
+      });
+      if (!response.ok) throw new Error("HTTP " + response.status);
+      form.replaceWith(el("span", "", "Thank you - your details were saved."));
+    } catch (error) {
+      submit.disabled = false;
+      alert("Sorry, your details could not be saved. Please check the email address and try again.");
+    }
+  };
+  box.appendChild(form);
+  bubble.appendChild(box);
+}
+
+async function ask(text) {
+  text = text.trim();
+  if (!text || sendEl.disabled) return;
+
+  addMessage("user", text);
+  lastQuestion = text;
+  inputEl.value = "";
+  sendEl.disabled = true;
+  const bubble = addMessage("bot pending", "Searching the PlacidWay pages...");
+
+  try {
+    const response = await fetch("/api/chat", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({message: text, history, disclaimer_shown: disclaimerShown}),
+    });
+    if (!response.ok) throw new Error("HTTP " + response.status);
+    const data = await response.json();
+
+    bubble.className = "msg bot";
+    bubble.textContent = data.answer;
+    addSources(bubble, data.sources);
+    if (data.show_disclaimer) {
+      bubble.appendChild(el("div", "extras disclaimer",
+        "This is general information from PlacidWay's website, not medical advice. " +
+        "Please consult a qualified doctor about your own situation."));
+      disclaimerShown = true;
+    }
+    if (data.offer_quote) addQuoteOffer(bubble, data.quote_url);
+
+    // Remember the exchange for follow-up questions (errors are not remembered).
+    if (data.answer_type !== "error") {
+      history.push({role: "user", content: text}, {role: "assistant", content: data.answer});
+    }
+  } catch (error) {
+    bubble.className = "msg bot";
+    bubble.textContent = "Sorry, something went wrong. Please try again.";
+  } finally {
+    sendEl.disabled = false;
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+    inputEl.focus();
+  }
+}
+
+document.getElementById("composer").onsubmit = (event) => {
+  event.preventDefault();
+  ask(inputEl.value);
+};
+
+document.getElementById("reset").onclick = () => {
+  history = [];
+  disclaimerShown = false;
+  messagesEl.replaceChildren();
+  showWelcome();
+};
+
+showWelcome();
+</script>
+</body>
+</html>
