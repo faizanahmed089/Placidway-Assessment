@@ -145,10 +145,12 @@ def admin_panel(kb: KnowledgeBase) -> None:
     with st.sidebar.expander("Admin"):
         if not config.ADMIN_TOKEN:
             st.caption("Disabled: ADMIN_TOKEN is not set.")
+            st.session_state.show_unanswered = st.session_state.show_leads = False
             return
         token = st.text_input("Admin token", type="password")
         # compare_digest avoids leaking the token through timing differences.
         if not token or not hmac.compare_digest(token, config.ADMIN_TOKEN):
+            st.session_state.show_unanswered = st.session_state.show_leads = False
             return
         if st.button("Refresh content now"):
             try:
@@ -157,10 +159,10 @@ def admin_panel(kb: KnowledgeBase) -> None:
                 st.success(f"Done: {summary}")
             except Exception as error:  # noqa: BLE001 - show the reason to the admin
                 st.error(f"Refresh failed, old index kept: {error}")
-        if st.checkbox("Show unanswered questions"):
-            st.dataframe(storage.list_rows("unanswered"))
-        if st.checkbox("Show leads"):
-            st.dataframe(storage.list_rows("leads"))
+        # The tables are drawn in the main area (see main()), where there is
+        # room to read them; the sidebar only holds the switches.
+        st.session_state.show_unanswered = st.checkbox("Show unanswered questions")
+        st.session_state.show_leads = st.checkbox("Show leads")
 
 
 def sidebar(kb: KnowledgeBase) -> None:
@@ -208,6 +210,14 @@ def main() -> None:
 
     if st.session_state.get("error"):
         st.error(st.session_state.pop("error"))
+
+    # Admin tables (only ever switched on from behind the admin token).
+    if st.session_state.get("show_unanswered"):
+        st.subheader("Unanswered questions")
+        st.dataframe(storage.list_rows("unanswered"), width="stretch")
+    if st.session_state.get("show_leads"):
+        st.subheader("Leads")
+        st.dataframe(storage.list_rows("leads"), width="stretch")
 
 
 main()

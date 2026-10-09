@@ -149,6 +149,19 @@ def _source_links(passages: list[dict], cited_numbers: list[int]) -> list[dict]:
     return links
 
 
+def _show_disclaimer(result: dict, already_shown: bool) -> bool:
+    """Decide whether the "not medical advice, consult a doctor" line is shown.
+
+    * Personal medical questions: ALWAYS. This guarantees in code that the
+      visitor is told to see a doctor, whatever wording the model chose.
+    * Ordinary answers about treatments: once per conversation.
+    """
+    if result["answer_type"] == "medical":
+        return True
+    return (result["answer_type"] == "answered" and result["medical_disclaimer"]
+            and not already_shown)
+
+
 def _response(answer: str, answer_type: str, sources=(), offer_quote=False,
               show_disclaimer=False, model: str = "") -> dict:
     return {
@@ -199,14 +212,14 @@ def answer_question(kb: KnowledgeBase, message: str, history: list[dict],
     if result["answer_type"] == "not_found":
         storage.log_unanswered(message, query, "not_found", best_score)
 
-    # 6. Respond. The disclaimer is shown once per conversation, not on every
-    # answer: the browser tells us whether it has already displayed it.
+    # 6. Respond. The disclaimer is shown once per conversation (the browser
+    # tells us whether it has already displayed it), and always on a personal
+    # medical question.
     return _response(
         answer=result["answer"],
         answer_type=result["answer_type"],
         sources=_source_links(passages, result["sources"]),
         offer_quote=result["offer_quote"],
-        show_disclaimer=result["medical_disclaimer"] and not disclaimer_shown
-        and result["answer_type"] in ("answered", "medical"),
+        show_disclaimer=_show_disclaimer(result, disclaimer_shown),
         model=result["model"],
     )

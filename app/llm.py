@@ -66,16 +66,30 @@ def ask_json(model: str, system_prompt: str, user_prompt: str, max_tokens: int =
             reply = json.loads(completion.choices[0].message.content)
         except RateLimitError as error:
             # Quota for this model is exhausted -> try the next model, if any.
-            if position + 1 < len(candidates):
-                log.warning("%s is rate limited, falling back to %s", candidate, candidates[position + 1])
-                continue
-            log.error("All models are rate limited: %s", error)
-            raise LLMError("rate limited on every configured model") from error
+            failure = f"{candidate} is rate limited"
+            last_error = error
         except APIError as error:
-            log.error("Groq API error (%s): %s", candidate, error)
-            raise LLMError(str(error)) from error
+            # "json_validate_failed" means the model wrote something that was
+            # not valid JSON (seen occasionally in testing). Another model, or
+            # simply another attempt, usually succeeds, so move on. Any other
+            # API error (bad key, bad request) will not fix itself: stop.
+            if "json_validate_failed" not in str(error):
+                log.error("Groq API error (%s): %s", candidate, error)
+                raise LLMError(str(error)) from error
+            failure = f"{candidate} returned invalid JSON"
+            last_error = error
         except (json.JSONDecodeError, TypeError, IndexError) as error:
-            raise LLMError(f"Model did not return valid JSON: {error}") from error
+            failure = f"{candidate} returned invalid JSON"
+            last_error = error
+        else:
+            failure = ""
+
+        if failure:
+            if position + 1 < len(candidates):
+                log.warning("%s, falling back to %s", failure, candidates[position + 1])
+                continue
+            log.error("Every configured model failed; last error: %s", last_error)
+            raise LLMError(f"all models failed ({failure})") from last_error
 
         if not isinstance(reply, dict):
             raise LLMError("Model returned JSON that is not an object")
