@@ -63,7 +63,11 @@ EXAMPLES = [
 # visitor after that triggers a re-crawl: this is the automatic refresh.
 # --------------------------------------------------------------------------
 @st.cache_resource(ttl=config.AUTO_REFRESH_HOURS * 3600 or None, show_spinner="Loading the knowledge base...")
-def load_knowledge_base() -> KnowledgeBase:
+def load_knowledge_base(code_version: float) -> KnowledgeBase:
+    # `code_version` is not used inside; it is part of the cache key. After a
+    # new deployment Streamlit reloads the code but keeps cached objects, and
+    # an object built by the OLD KnowledgeBase class would not have the new
+    # methods' behaviour. A changed version number forces a fresh build.
     storage.init_db()
     if _index_is_stale():
         try:
@@ -85,6 +89,11 @@ def _index_is_stale() -> bool:
         return True
     age = datetime.now(timezone.utc) - last_checked
     return age > timedelta(hours=config.AUTO_REFRESH_HOURS)
+
+
+def _code_version() -> float:
+    """Newest modification time among the app's Python files."""
+    return max(path.stat().st_mtime for path in (config.BASE_DIR / "app").glob("*.py"))
 
 
 def show_text(text: str) -> None:
@@ -178,7 +187,7 @@ def sidebar(kb: KnowledgeBase) -> None:
 
 
 def main() -> None:
-    kb = load_knowledge_base()
+    kb = load_knowledge_base(_code_version())
     st.session_state.setdefault("messages", [])
     sidebar(kb)
 
