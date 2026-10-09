@@ -25,11 +25,18 @@ import streamlit as st
 try:
     for _name, _value in st.secrets.items():
         if isinstance(_value, str):
-            os.environ.setdefault(_name, _value)
+            os.environ[_name] = _value.strip()
 except Exception:  # noqa: BLE001 - no secrets file when running locally
     pass
 
 from app import config, storage  # noqa: E402 - must come after the secrets step
+
+# app/config.py reads the environment only once, when it is first imported.
+# Streamlit keeps the Python process alive between runs, so if the secrets
+# were added or changed AFTER the app first started, config would still hold
+# the old (empty) values. Re-apply them on every run to stay in sync.
+config.GROQ_API_KEY = os.environ.get("GROQ_API_KEY", config.GROQ_API_KEY)
+config.ADMIN_TOKEN = os.environ.get("ADMIN_TOKEN", config.ADMIN_TOKEN)
 from app.chat import answer_question  # noqa: E402
 from app.ingest import run_ingest  # noqa: E402
 from app.knowledge_base import KnowledgeBase  # noqa: E402
