@@ -1,8 +1,8 @@
-# Container image for Hugging Face Spaces (Docker SDK) or any Docker host.
+# Container image for the FastAPI version, for any Docker host. Not yet built or tested.
 FROM python:3.14-slim
 
-# Hugging Face Spaces runs containers as user id 1000, so create that user and
-# make sure everything the app writes to (data/, model cache) belongs to it.
+# Run as a normal user, not root, and make sure everything the app writes to
+# (data/, model cache) belongs to that user.
 RUN useradd --create-home --uid 1000 appuser
 WORKDIR /home/appuser/app
 
@@ -23,6 +23,6 @@ USER appuser
 # so the running container starts immediately.
 RUN python -c "from app.knowledge_base import KnowledgeBase; KnowledgeBase.load()"
 
-# Spaces expects the app on port 7860.
+# The server listens on port 7860.
 EXPOSE 7860
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "7860"]

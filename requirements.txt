@@ -1,4 +1,7 @@
-# Web server
+# Public demo UI (Streamlit Community Cloud)
+streamlit==1.65.0
+
+# Web server (local / Docker alternative)
 fastapi==0.143.0
 uvicorn[standard]==0.54.0
 

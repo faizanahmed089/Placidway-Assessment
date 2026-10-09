@@ -1,22 +1,9 @@
----
-title: PlacidWay Knowledge Chatbot
-emoji: 💬
-colorFrom: green
-colorTo: blue
-sdk: docker
-app_port: 7860
-pinned: false
----
-
 # PlacidWay Website Knowledge Chatbot
 
 A chatbot that answers visitor questions using **only** the 7 PlacidWay pages
 listed in the assessment brief. It cites the page each answer came from, says
 "I don't know" when the pages do not contain the answer, and refuses to
 confirm prices that are not on the pages.
-
-(The block at the very top of this file is configuration for Hugging Face
-Spaces, where the demo is hosted.)
 
 ## How it works
 
@@ -77,9 +64,10 @@ the prompt and by keeping labels next to numbers.
 | Embeddings | `fastembed` with `BAAI/bge-small-en-v1.5` | Runs on CPU, free, no API key. English-only is enough because queries are rewritten to English first. |
 | Vector store | NumPy array on disk | About 100 chunks; brute-force search takes milliseconds. A vector database would add setup and nothing else. |
 | LLM | Groq free tier: `openai/gpt-oss-120b` (answers), `openai/gpt-oss-20b` (query rewrite) | Free, fast, supports JSON output. These were the general-purpose chat models available on the free tier at build time; reasoning effort is set to low. If a model's free quota is used up, the next model in `GROQ_FALLBACK_MODELS` answers instead. All calls go through `app/llm.py`, so the provider can be swapped in one file. |
-| API + UI | FastAPI + one static HTML file | Small, no build step. |
+| Public demo UI | Streamlit (`streamlit_app.py`) | Streamlit Community Cloud hosts it free, straight from GitHub. It calls the same `answer_question()` pipeline. |
+| API + alternative UI | FastAPI + one static HTML file | JSON API and admin endpoints for local or Docker use. |
 | Storage | SQLite | Leads and the unanswered-question log, with no server to run. |
-| Hosting | Hugging Face Spaces (Docker) | Free public URL, no login needed to use the demo. |
+| Hosting | Streamlit Community Cloud | Free public URL with no payment card; visitors need no login. A `Dockerfile` is included for any Docker host. |
 
 ## Project layout
 
@@ -96,8 +84,9 @@ app/
   guardrails.py      number check and link check
   chat.py            the 6-step answering pipeline
   storage.py         SQLite: leads + unanswered questions
-  main.py            FastAPI routes
-static/index.html    chat UI
+  main.py            FastAPI routes (JSON API + admin endpoints)
+streamlit_app.py     Streamlit chat UI used for the public demo
+static/index.html    plain HTML chat UI served by the FastAPI app
 scripts/run_test_questions.py   runs the assessment's test questions
 tests/               unit tests (no network, no API key)
 data/index/          the built knowledge base (chunks committed; vectors rebuilt on first start)
@@ -125,26 +114,39 @@ Copy `.env.example` to `.env` and set `GROQ_API_KEY` (free at
 https://console.groq.com/keys). Optionally set `ADMIN_TOKEN` to enable the
 admin endpoints.
 
+Run the demo UI:
+
+```bash
+streamlit run streamlit_app.py
+```
+
+Or run the FastAPI version (JSON API, admin endpoints, plain HTML chat page at
+http://localhost:8000):
+
 ```bash
 uvicorn app.main:app --reload
 ```
 
-Open http://localhost:8000. The first start downloads the embedding model
-(about 70 MB) once.
+The first start downloads the embedding model (about 65 MB) once.
 
 ## Refreshing the content
 
 Three ways, all running the same `run_ingest()` function:
 
 1. **Command line:** `python -m app.ingest` (add `--force` to rebuild even if nothing changed).
-2. **HTTP:** `POST /api/admin/refresh` with header `X-Admin-Token: <ADMIN_TOKEN>`.
-3. **Automatic:** the server re-checks every 24 hours (`AUTO_REFRESH_HOURS`, 0 turns it off).
+2. **In the demo:** sidebar -> Admin -> enter the admin token -> "Refresh content now".
+   (FastAPI version: `POST /api/admin/refresh` with header `X-Admin-Token`.)
+3. **Automatic:** the pages are re-checked every 24 hours (`AUTO_REFRESH_HOURS`, 0 turns it off).
 
 A refresh re-fetches the 7 pages, hashes the *extracted text* of each one and
 rebuilds the index only if a hash changed. If any page fails to download or
 parse, the refresh aborts and the previous index keeps serving.
 
-## Other endpoints
+## Admin views
+
+In the demo, the sidebar's Admin section (token required) also shows the
+unanswered-question log and the captured leads. The FastAPI version exposes
+the same data as JSON:
 
 | Endpoint | Purpose |
 |---|---|
@@ -152,8 +154,7 @@ parse, the refresh aborts and the previous index keeps serving.
 | `GET /api/admin/unanswered` | Questions the bot could not answer (content gaps), newest first |
 | `GET /api/admin/leads` | Names and emails left by visitors asking for a quote |
 
-Admin endpoints need the `X-Admin-Token` header and are disabled when
-`ADMIN_TOKEN` is not set.
+Admin features are disabled when `ADMIN_TOKEN` is not set.
 
 ## Nice-to-have features included
 
@@ -179,11 +180,12 @@ python -m scripts.run_test_questions
 Runs the assessment's test questions through the live pipeline (needs
 `GROQ_API_KEY`) and writes [test_results.md](test_results.md).
 
-## Deploying to Hugging Face Spaces
+## Deployment
 
-1. Create a new Space, SDK **Docker**, visibility **Public**.
-2. In the Space settings add the secrets `GROQ_API_KEY` and `ADMIN_TOKEN`.
-3. Push this repository to the Space's git remote. The `Dockerfile` builds the image and starts the server on port 7860.
+The live demo runs on Streamlit Community Cloud from this repository
+(`streamlit_app.py`, secrets `GROQ_API_KEY` and `ADMIN_TOKEN`). Steps are in
+[DEPLOY.md](DEPLOY.md). The `Dockerfile` runs the FastAPI version on any
+Docker host.
 
 ## Free-tier limits
 

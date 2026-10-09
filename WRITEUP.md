@@ -27,10 +27,11 @@
   up the quota. The bot then shows a "try again in a moment" message. Answers
   from the smaller fallback models pass the same code checks but may be worded
   less well.
-- **Hosting is ephemeral.** On the free Hugging Face tier the Space sleeps
-  after long inactivity (first request is slow) and its disk resets on restart,
-  so leads and the unanswered-question log are lost, and the index returns to
-  the committed version until the next refresh.
+- **Hosting is ephemeral.** On the free Streamlit Community Cloud tier the app
+  sleeps after a period without visitors (the next visitor has to wake it and
+  wait), and its disk resets on restart, so leads and the unanswered-question
+  log are lost, and the index returns to the committed version until the next
+  refresh. The Docker image has not been built or run.
 - **The LLM is not perfectly repeatable.** Even at temperature 0 the same
   question can be worded or classified slightly differently between runs
   (for example a correct refusal labelled `not_found` one time and `answered`

@@ -101,9 +101,9 @@ class KnowledgeBase:
     def load(cls) -> "KnowledgeBase":
         """Read the index files written by ingest.py."""
         chunks = json.loads(config.CHUNKS_FILE.read_text(encoding="utf-8"))
-        # The vectors file is binary, so it is not committed to git (Hugging
-        # Face rejects plain binary files). When it is missing - a fresh clone
-        # or a new Docker image - it is recomputed from chunks.json, which
+        # The vectors file is binary, so it is not committed to git. When it
+        # is missing - a fresh clone or a new deployment - it is recomputed
+        # from chunks.json, which
         # takes a few seconds and needs no crawling.
         if config.EMBEDDINGS_FILE.exists():
             embeddings = np.load(config.EMBEDDINGS_FILE)
