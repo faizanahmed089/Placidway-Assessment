@@ -83,13 +83,21 @@ MASK = "[a figure that is NOT on the PlacidWay pages]"
 
 
 def mask_unsupported_numbers(text: str, passages: list[dict]) -> str:
-    """Replace numbers in the VISITOR's message that are not in the passages
-    with a placeholder, before the message is shown to the answering model.
+    """Replace numbers in the VISITOR's message that the relevant page does
+    not contain with a placeholder, before the answering model sees the message.
 
     This is the defence against "I heard it costs $50, confirm that": the
     model never sees "$50", so it can neither agree with it nor repeat it, and
     the placeholder tells it outright that the figure is not on the pages.
+
+    A visitor's number is kept only if it appears on the page of the TOP
+    passage (the page the question is about). Checking all passages is not
+    enough: keyword search happily retrieves an unrelated page that merely
+    contains "$50", and the model then starts talking about that page.
     """
+    if passages:
+        main_page = passages[0]["source_id"]
+        passages = [p for p in passages if p["source_id"] == main_page]
     allowed = _allowed_numbers(passages)
     return _NUMBER.sub(lambda m: MASK if _is_unsupported(m, allowed) else m.group(0), _prepare(text))
 

@@ -5,6 +5,11 @@ listed in the assessment brief. It cites the page each answer came from, says
 "I don't know" when the pages do not contain the answer, and refuses to
 confirm prices that are not on the pages.
 
+**Live demo:** https://placidway-assessment-jma4uzestahquereappatee.streamlit.app/
+(free hosting: if it has been idle it may need a minute to wake up)
+
+**Test results:** [test_results.md](test_results.md) | **Limitations and next steps:** [WRITEUP.md](WRITEUP.md)
+
 ## How it works
 
 ```
@@ -63,7 +68,7 @@ the prompt and by keeping labels next to numbers.
 | Keyword search | `rank-bm25` with light stemming | Exact terms such as "LAK" or "ozone" must match; stemming lets "include" match "Included". |
 | Embeddings | `fastembed` with `BAAI/bge-small-en-v1.5` | Runs on CPU, free, no API key. English-only is enough because queries are rewritten to English first. |
 | Vector store | NumPy array on disk | About 100 chunks; brute-force search takes milliseconds. A vector database would add setup and nothing else. |
-| LLM | Groq free tier: `openai/gpt-oss-120b` (answers), `openai/gpt-oss-20b` (query rewrite) | Free, fast, supports JSON output. These were the general-purpose chat models available on the free tier at build time; reasoning effort is set to low. If a model's free quota is used up, the next model in `GROQ_FALLBACK_MODELS` answers instead. All calls go through `app/llm.py`, so the provider can be swapped in one file. |
+| LLM | Groq free tier: `openai/gpt-oss-120b` (answers), `openai/gpt-oss-20b` (query rewrite) | Free, fast, supports JSON output. These were the general-purpose chat models available on the free tier at build time; reasoning effort is set to low. If a model's free quota is used up, or it returns invalid JSON, the next model in `GROQ_FALLBACK_MODELS` answers instead. All calls go through `app/llm.py`, so the provider can be swapped in one file. |
 | Public demo UI | Streamlit (`streamlit_app.py`) | Streamlit Community Cloud hosts it free, straight from GitHub. It calls the same `answer_question()` pipeline. |
 | API + alternative UI | FastAPI + one static HTML file | JSON API and admin endpoints for local or Docker use. |
 | Storage | SQLite | Leads and the unanswered-question log, with no server to run. |
@@ -160,7 +165,7 @@ Admin features are disabled when `ADMIN_TOKEN` is not set.
 
 - **Answers in the visitor's language:** the query is translated to English for search; the answer is written in the original language.
 - **Follow-up questions:** the rewrite step resolves "it" / "there" from chat history.
-- **Medical disclaimer:** shown once per conversation, only on answers about treatments.
+- **Medical disclaimer:** shown once per conversation on answers about treatments, and always on a personal medical question (enforced in code, so the visitor is told to see a doctor whatever the model wrote).
 - **Lead capture:** a name + email form appears when the bot cannot answer or the visitor asks for a quote.
 - **Unanswered-question log:** stored with the similarity score, so a low score points to a missing topic.
 
@@ -170,8 +175,9 @@ Admin features are disabled when `ADMIN_TOKEN` is not set.
 pytest
 ```
 
-16 unit tests cover the number check, wrong-price masking, link check,
-keyword stemming, table extraction, noise removal and chunk metadata.
+18 unit tests cover the number check, wrong-price masking, link check,
+the medical-disclaimer rule, keyword stemming, table extraction, noise removal
+and chunk metadata.
 
 ```bash
 python -m scripts.run_test_questions

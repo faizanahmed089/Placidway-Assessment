@@ -8,6 +8,7 @@ from app.chunker import chunk_page
 from app.extractor import extract_page
 
 PASSAGES = [{
+    "source_id": "package-adrenal",
     "page_title": "Alternative Adrenal Cancer Treatment Package in Tijuana, Mexico by ITC",
     "section": "Included in the Out-Patient Program ($18,995 USD)",
     "text": "Program Type: In-Patient Program | Duration: 3 Weeks | Total Cost (USD): $30,000\n"
@@ -58,6 +59,15 @@ def test_wrong_price_from_visitor_is_masked_but_real_price_is_kept():
     assert guardrails.MASK not in kept and "18995" in kept
 
 
+def test_visitor_figure_found_only_on_an_unrelated_page_is_still_masked():
+    # Keyword search also returned a price-comparison passage containing "$50".
+    # The question is about the adrenal package (top passage), so "$50" is hidden.
+    other_page = {"source_id": "price-comparison", "page_title": "Alternative Medicine Cost Abroad",
+                  "section": "Cost Breakdown", "text": "Initial Holistic Consultation | Low (USD): $50"}
+    masked = guardrails.mask_unsupported_numbers("Does it cost $50?", PASSAGES + [other_page])
+    assert "50" not in masked and guardrails.MASK in masked
+
+
 def test_contains_figures_detects_prices_but_not_plain_counting():
     assert guardrails.contains_figures("It costs $18,995 USD.") is True
     assert guardrails.contains_figures("There are 2 programs.") is False
@@ -69,6 +79,22 @@ def test_word_forms_share_one_token():
     from app.knowledge_base import tokenize
     assert tokenize("include") == tokenize("Included") == tokenize("includes") == tokenize("including")
     assert tokenize("$18,995") == tokenize("18995")
+
+
+# ---------------------------- medical disclaimer ----------------------------
+def test_personal_medical_question_always_gets_the_doctor_note():
+    from app.chat import _show_disclaimer
+    medical = {"answer_type": "medical", "medical_disclaimer": False}
+    # Shown even if the model forgot the flag and even if it was shown before.
+    assert _show_disclaimer(medical, already_shown=True) is True
+
+
+def test_ordinary_treatment_answer_shows_the_note_only_once():
+    from app.chat import _show_disclaimer
+    answered = {"answer_type": "answered", "medical_disclaimer": True}
+    assert _show_disclaimer(answered, already_shown=False) is True
+    assert _show_disclaimer(answered, already_shown=True) is False
+    assert _show_disclaimer({"answer_type": "out_of_scope", "medical_disclaimer": True}, False) is False
 
 
 # ------------------------------- link check -------------------------------

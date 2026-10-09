@@ -9,6 +9,7 @@ places that exist on the 7 source pages, plus extra cases where the honest
 answer is "that is not on the pages".
 """
 
+import argparse
 import time
 
 from app import config, storage
@@ -62,10 +63,50 @@ CASES = [
 ]
 
 
+def run_case(kb: KnowledgeBase, title: str, expected: str, messages: list[str]) -> list[str]:
+    """Run one test case and return its section of the results file."""
+    history: list[dict] = []
+    reply: dict = {}
+    for message in messages:
+        reply = answer_question(kb, message, history)
+        if reply["answer_type"] == "error":
+            # LLM unavailable (e.g. free-tier quota used up). Stop without
+            # touching the existing test_results.md.
+            raise SystemExit(f"Stopped at '{title}': the LLM service is unavailable. "
+                             "test_results.md was NOT changed.")
+        history += [{"role": "user", "content": message},
+                    {"role": "assistant", "content": reply["answer"]}]
+        time.sleep(25)  # free tier allows ~8,000 tokens per minute per model
+
+    lines = [f"## {title}", f"**Expected behaviour:** {expected}", ""]
+    for turn in history[:-1]:
+        speaker = "Visitor" if turn["role"] == "user" else "Bot"
+        lines += [f"**{speaker}:** {turn['content']}", ""]
+    sources = ", ".join(f"[{s['title']}]({s['url']})" for s in reply["sources"]) or "none"
+    lines += [
+        f"**Bot:** {reply['answer']}",
+        "",
+        f"- Answer type: `{reply['answer_type']}`",
+        f"- Sources: {sources}",
+        f"- Quote offered: {reply['offer_quote']}",
+        f"- Answered by model: `{reply['model']}`",
+        "",
+    ]
+    print(f"done: {title} -> {reply['answer_type']}")
+    return lines
+
+
 def main() -> None:
+    parser = argparse.ArgumentParser(description="Run the assessment test questions")
+    parser.add_argument("--only", default="",
+                        help="comma-separated case numbers to re-run, e.g. '3,8'; the other "
+                             "cases keep the answers already in test_results.md")
+    wanted = [w.strip() for w in parser.parse_args().only.split(",") if w.strip()]
+
     storage.init_db()
     kb = KnowledgeBase.load()
-    lines = [
+    output = config.BASE_DIR / "test_results.md"
+    header = [
         "# Test results",
         "",
         f"Answer model: `{config.ANSWER_MODEL}` | Rewrite model: `{config.REWRITE_MODEL}` | "
@@ -76,39 +117,26 @@ def main() -> None:
         "",
     ]
 
+    # Existing sections, keyed by title, so a partial re-run can keep them.
+    existing: dict[str, list[str]] = {}
+    if wanted and output.exists():
+        current = None
+        for line in output.read_text(encoding="utf-8").splitlines():
+            if line.startswith("## "):
+                current = line[3:]
+                existing[current] = []
+            if current is not None:
+                existing[current].append(line)
+
+    lines = list(header)
     for title, expected, messages in CASES:
-        history: list[dict] = []
-        reply: dict = {}
-        for message in messages:
-            reply = answer_question(kb, message, history)
-            if reply["answer_type"] == "error":
-                # LLM unavailable (e.g. free-tier quota used up). Stop without
-                # touching the existing test_results.md.
-                raise SystemExit(f"Stopped at '{title}': the LLM service is unavailable. "
-                                 "test_results.md was NOT changed.")
-            history += [{"role": "user", "content": message},
-                        {"role": "assistant", "content": reply["answer"]}]
-            time.sleep(25)  # free tier allows ~8,000 tokens per minute per model
+        selected = not wanted or any(title.startswith(f"{number}.") for number in wanted)
+        if selected or title not in existing:
+            lines += run_case(kb, title, expected, messages)
+        else:
+            lines += existing[title]
 
-        lines.append(f"## {title}")
-        lines.append(f"**Expected behaviour:** {expected}")
-        lines.append("")
-        for turn in history[:-1]:
-            speaker = "Visitor" if turn["role"] == "user" else "Bot"
-            lines.append(f"**{speaker}:** {turn['content']}")
-            lines.append("")
-        lines.append(f"**Bot:** {reply['answer']}")
-        lines.append("")
-        lines.append(f"- Answer type: `{reply['answer_type']}`")
-        sources = ", ".join(f"[{s['title']}]({s['url']})" for s in reply["sources"]) or "none"
-        lines.append(f"- Sources: {sources}")
-        lines.append(f"- Quote offered: {reply['offer_quote']}")
-        lines.append(f"- Answered by model: `{reply['model']}`")
-        lines.append("")
-        print(f"done: {title} -> {reply['answer_type']}")
-
-    output = config.BASE_DIR / "test_results.md"
-    output.write_text("\n".join(lines), encoding="utf-8")
+    output.write_text("\n".join(lines) + "\n", encoding="utf-8")
     print(f"Saved {output}")
 
 
