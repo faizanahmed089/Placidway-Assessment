@@ -1,0 +1,19 @@
+# Web server
+fastapi==0.143.0
+uvicorn[standard]==0.54.0
+
+# Crawling + HTML parsing
+requests==2.34.2
+beautifulsoup4==4.15.0
+
+# Retrieval: keyword search + local CPU embeddings (no API key needed)
+rank-bm25==0.2.2
+fastembed==0.9.0
+numpy==2.5.3
+
+# LLM provider (free tier)
+groq==1.7.0
+
+# Config from .env, tests
+python-dotenv==1.2.4
+pytest==9.1.1

@@ -1,0 +1,23 @@
+# Secrets - never commit
+.env
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Runtime data (leads and logs contain personal data)
+data/*.sqlite3
+data/**/*.tmp
+
+# Binary vectors: rebuilt automatically from chunks.json on first start.
+data/index/embeddings.npy
+
+# NOTE: data/index/chunks.json and manifest.json ARE committed on purpose, so
+# the deployed app starts with a ready knowledge base instead of crawling on
+# every cold start.
+
+# Personal prep notes - not part of the submission
+DEMO_SCRIPT.md
+MANUAL_CHECKLIST.md
