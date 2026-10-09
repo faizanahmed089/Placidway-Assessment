@@ -1,0 +1,49 @@
+{
+  "built_at": "2026-10-09T06:49:56+00:00",
+  "last_checked": "2026-10-09T06:57:50+00:00",
+  "embedding_model": "BAAI/bge-small-en-v1.5",
+  "pages": {
+    "clinic-profile": {
+      "url": "https://www.placidway.com/profile/5/Alternative-Cancer-Treatment-by-ITC-Immunity-Therapy-Center",
+      "title": "ITC Immunity Therapy Center - Alternative Cancer Treatment in Tijuana",
+      "hash": "6458afddf2726a54222ba59af140695338acccd07c2dc9d2129c5939157699c5",
+      "chunks": 26
+    },
+    "package-adenocarcinoma": {
+      "url": "https://www.placidway.com/package/7903/Alternative-Adenocarcinoma-Cancer-Treatment-Package-in-Tijuana-Mexico-by-ITC",
+      "title": "Alternative Adenocarcinoma Cancer Treatment Package in Tijuana, Mexico by ITC",
+      "hash": "6ebfaaee522408c3752d6aa7cf098381e2c284ba98caee314dd186a2dbd1b63b",
+      "chunks": 17
+    },
+    "package-adrenal": {
+      "url": "https://www.placidway.com/package/7902/Alternative-Adrenal-Cancer-Treatment-Package-in-Tijuana-Mexico-by-ITC",
+      "title": "Alternative Adrenal Cancer Treatment Package in Tijuana, Mexico by ITC",
+      "hash": "25bed8fe3ae9b4a350a9e6bf500503da12f43417790b2561b35939b6943bf68e",
+      "chunks": 16
+    },
+    "package-anal": {
+      "url": "https://www.placidway.com/package/7901/Alternative-Anal-Cancer-Treatment-Package-in-Tijuana-Mexico-by-ITC",
+      "title": "Alternative Anal Cancer Treatment Package in Tijuana, Mexico by ITC",
+      "hash": "100182c6a402365016ffc4ab5ac68bb46ab17ba6e8e5f32177d6d24d7baa3602",
+      "chunks": 16
+    },
+    "clinic-videos": {
+      "url": "https://www.placidway.com/profile-videos/5/Alternative-Cancer-Treatment-by-ITC-Immunity-Therapy-Center",
+      "title": "Alternative Cancer Treatment Videos at ITC Tijuana",
+      "hash": "0ca74e13aa0f8bec1ea9f3f5c822448e5766a4524e4d902b3ba3b647e7ac8780",
+      "chunks": 15
+    },
+    "price-list": {
+      "url": "https://www.placidway.com/price-list/5/Alternative-Cancer-Treatment-by-ITC-Immunity-Therapy-Center",
+      "title": "Alternative Cancer Treatment Prices at ITC Tijuana",
+      "hash": "a2d9ed4c590d000cd07489a53663a4189851b50a9e2b31eead4828803dc78035",
+      "chunks": 6
+    },
+    "price-comparison": {
+      "url": "https://www.placidway.com/search-medical-pricings/Alternative-Medicine/All/1",
+      "title": "Alternative Medicine Cost Abroad \u2013 Compare Transparent Prices",
+      "hash": "e7f3a6fa348a97ae098f5349c3b749667f92cb13b81924b13453e4222e6fc96c",
+      "chunks": 11
+    }
+  }
+}
